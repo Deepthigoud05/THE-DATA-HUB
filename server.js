@@ -1,11 +1,17 @@
 require("dotenv").config();
 
 const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const cloudinary = require("./config/cloudinary");
+
 const connectDB = require("./config/db");
 const Post = require("./models/Post");
 const User = require("./models/User");
 
 const app = express();
+
+app.use(cors());
 
 connectDB();
 
@@ -13,6 +19,10 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(express.json());
+
+const upload = multer({
+    dest: "uploads/"
+});
 
 // Custom logger middleware
 app.use((req, res, next) => {
@@ -25,7 +35,7 @@ app.use((req, res, next) => {
 // Home Route
 app.get("/", (req, res) => {
     res.json({
-message: "Welcome to The Data Hub API"
+        message: "Welcome to The Data Hub API"
     });
 });
 
@@ -39,6 +49,8 @@ app.post("/users", async (req, res) => {
 
         res.status(201).json(user);
     } catch (error) {
+        console.log(error);
+
         res.status(500).json({
             message: error.message
         });
@@ -52,6 +64,8 @@ app.get("/users", async (req, res) => {
 
         res.json(users);
     } catch (error) {
+        console.log(error);
+
         res.status(500).json({
             message: error.message
         });
@@ -67,6 +81,8 @@ app.get("/posts/recent", async (req, res) => {
 
         res.json(posts);
     } catch (error) {
+        console.log(error);
+
         res.status(500).json({
             message: error.message
         });
@@ -80,23 +96,40 @@ app.get("/posts", async (req, res) => {
 
         res.json(posts);
     } catch (error) {
+        console.log(error);
+
         res.status(500).json({
             message: error.message
         });
     }
 });
 
-// Create Post
-app.post("/posts", async (req, res) => {
+// Create Post with Image Upload
+app.post("/posts", upload.single("image"), async (req, res) => {
     try {
+        let imageUrl = "";
+
+        if (req.file) {
+            const result = await cloudinary.uploader.upload(
+                req.file.path
+            );
+
+            imageUrl = result.secure_url;
+        }
+
         const post = await Post.create({
             title: req.body.title,
             content: req.body.content,
-            authorId: req.body.authorId
+            authorId: req.body.authorId,
+            imageUrl: imageUrl
         });
 
         res.status(201).json(post);
+
     } catch (error) {
+        console.log("UPLOAD ERROR:");
+        console.log(error);
+
         res.status(500).json({
             message: error.message
         });
@@ -117,7 +150,11 @@ app.delete("/posts/:id", async (req, res) => {
         res.json({
             message: "Post deleted successfully"
         });
+
     } catch (error) {
+        console.log("DELETE ERROR:");
+        console.log(error);
+
         res.status(500).json({
             message: error.message
         });
